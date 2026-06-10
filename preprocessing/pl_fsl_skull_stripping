@@ -1,0 +1,43 @@
+#!/bin/bash
+# fsl_skull_stripping
+
+echo "starting FSL skull stripping"
+
+dirs="/mnt/volume/tacmem_workspace/derivatives/data"
+func="func"
+
+# specify subjects
+subjects=("sub-03" "sub-05" "sub-08" "sub-09" "sub-10" "sub-11" "sub-12" "sub-13" "sub-14" "sub-15" "sub-16" "sub-17" "sub-20" "sub-24" "sub-27" "sub-28" "sub-29" "sub-30" "sub-32" "sub-33" "sub-34" "sub-35" "sub-36" "sub-37" "sub-39" "sub-40" "sub-41" "sub-42" "sub-43" "sub-44" "sub-47")
+
+for sub in "${subjects[@]}"; do
+    data_path="$dirs/$sub/$func"
+
+    echo "Processing subject: $sub"
+    echo "Changing to directory: $data_path"
+
+    if [[ ! -d "$data_path" ]]; then
+        echo "Directory $data_path not found! Skipping..."
+        continue
+    fi
+
+    cd "$data_path" || continue
+
+    for nii in "${sub}_task-"*_bold.nii; do
+        if [[ -f "$nii" ]]; then
+            echo "Processing: $nii"
+            base_name="${nii%.nii}"
+
+            fslmaths "$nii" -Tmean "${base_name}_Tmean.nii"
+            bet2 "${base_name}_Tmean.nii" "${base_name}_Tmean_brain" -f 0.1 -g 0 -m
+            fslmaths "${base_name}_Tmean_brain.nii.gz" -bin "${base_name}_brain_mask.nii.gz"
+            fslmaths "$nii" -mas "${base_name}_brain_mask.nii.gz" "${base_name}_skull_stripped.nii.gz"
+            gunzip "${base_name}_skull_stripped.nii.gz"
+
+            echo "Output: ${base_name}_skull_stripped.nii"
+        else
+            echo "File $nii does not exist in $data_path"
+        fi
+    done
+done
+
+echo "DONE"
